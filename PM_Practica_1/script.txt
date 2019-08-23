@@ -1,0 +1,27 @@
+// Procedimientos
+
+// b)
+
+mkdir PM_01 && cd PM_01
+mkdir Practica1 Practica2 Practica5 
+cd Practica1
+touch ArcP1
+mkdir Arduino
+mkdir DIR_1A && cd DIR_1A
+touch Arc1A && cd
+
+cd PM_01 && cd Practica2 
+mkdir DIR_2A && cd DIR_2A
+touch Arc2A && mkdir DIR_2AA && mkdir DIR_2AB
+cd
+
+cd PM_01 && cd Practica5
+mkdir DIR_5A && cd DIR_5A
+touch Arc5A && mkdir DIR_2AA
+cd
+
+// c)
+
+
+
+
