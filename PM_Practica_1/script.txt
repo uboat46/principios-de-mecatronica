@@ -22,6 +22,10 @@ cd
 
 // c)
 
+cd PM_01/Practica2/DIR_2A
+rm Arc2A
+rm DIR_2AB
+cp DIR_2AA
 
 
 
