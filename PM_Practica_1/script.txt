@@ -24,8 +24,9 @@ cd
 
 cd PM_01/Practica2/DIR_2A
 rm Arc2A
-rm DIR_2AB
-cp DIR_2AA
+rm -rf DIR_2AB
+cp -R DIR_2AA Dir_X
+
 
 
 
