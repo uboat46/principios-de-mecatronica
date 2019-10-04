@@ -38,6 +38,9 @@ void receiveEvent(int howMany) {
     }
   }
 
+  Serial.print("Velocidad: ");
+  Serial.println(speed_value_motor);
+
   if (speed_value_motor < 0) {
     digitalWrite(motorLPin, HIGH);
     digitalWrite(motorRPin, LOW);
