@@ -1,0 +1,8 @@
+prefix=/home/robotica/Desktop/principios-de-mecatronica/PM_Practica_5/catkin/install
+
+Name: tcrtl
+Description: Description of tcrtl
+Version: 0.0.0
+Cflags: 
+Libs: -L/home/robotica/Desktop/principios-de-mecatronica/PM_Practica_5/catkin/install/lib 
+Requires: 
