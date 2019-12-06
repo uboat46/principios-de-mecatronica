@@ -1,0 +1,8 @@
+prefix=/home/robotica/Desktop/principios-de-mecatronica/PM_Practica_5/catkin/devel
+
+Name: turtlr_ctrl
+Description: Description of turtlr_ctrl
+Version: 0.0.0
+Cflags: 
+Libs: -L/home/robotica/Desktop/principios-de-mecatronica/PM_Practica_5/catkin/devel/lib 
+Requires: 
