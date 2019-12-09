@@ -1,36 +1,53 @@
 #include <PID_v1.h>
 #include <math.h>
 
+//  ========= CONSTANTS =========
 #define PI 3.1415926535897932384626433832795
+#define DIAMETRO 6.6
+#define L_RUEDAS 13.5
+#define VELOCIDAD 10 // cm/s
 
+//  ========= INTERRUPT PINS FOR THE WHEELS =========
 const byte interruptPinDer = 3;
 const byte interruptPinIzq = 2;
-volatile byte state = LOW;
 
-unsigned long tiempoVueltaDer = 0;
-double contadorDer = 0;
-int inicioDer = 0;
+//  ========= INTERRUPT COUNTERS =========
+volatile unsigned contadorDer = 0;
+volatile unsigned contadorIzq = 0;
 
-unsigned long tiempoVueltaIzq = 0;
-double contadorIzq = 0;
-int inicioIzq = 0;
-
+//  ========= ODOMETRY =========
 double velocidadAngularDer = 0;
+double velocidadLinearDer = 0;
 double velocidadAngularIzq = 0;
+double velocidadLinearIzq = 0;
 
 
-//Define Variables we'll be connecting to
+float distancia = 0;
+float x = 0;
+float y = 0;
+float phi = 0;
+
+
+//  ========= CONTROL =========
+double phiDeseado = 0;
+double xDeseado = 20;
+double yDeseado = 0;
+double error = 0;
+double W = 0;
+
+
+//  ========= PID VARIABLES =========
 double velocidadNormaDer, entregaVelocidadDer;
 double velocidadNormaIzq, entregaVelocidadIzq;
 
 //Specify the links and initial tuning parameters
-PID myPIDDer(&velocidadAngularDer, &entregaVelocidadDer, &velocidadNormaDer, 2, 5, 1, P_ON_E, DIRECT); //P_ON_M specifies that Proportional on Measurement be used
-PID myPIDIzq(&velocidadAngularIzq, &entregaVelocidadIzq, &velocidadNormaIzq, 2, 5, 1, P_ON_E, DIRECT); //P_ON_M specifies that Proportional on Measurement be used
+PID myPIDDer(&velocidadAngularDer, &entregaVelocidadDer, &velocidadNormaDer, 2, 5, 1, P_ON_M, DIRECT); //P_ON_M specifies that Proportional on Measurement be used
+PID myPIDIzq(&velocidadAngularIzq, &entregaVelocidadIzq, &velocidadNormaIzq, 2, 5, 1, P_ON_M, DIRECT); //P_ON_M specifies that Proportional on Measurement be used
 
 
 void setup() {
 
-  // Set timer to count wheels rmp every 100ms
+  // Set timer to count wheels velocity every 100ms
   cli();
   TCCR1B = 0;
   TCCR1A = 0;
@@ -62,8 +79,8 @@ void setup() {
   digitalWrite(5, HIGH);
   digitalWrite(4, LOW);
 
-  velocidadNormaDer = 12;
-  velocidadNormaIzq = 12;
+  velocidadNormaDer = 0;
+  velocidadNormaIzq = 0;
   
   //turn the PID on
   myPIDDer.SetMode(AUTOMATIC);
@@ -77,31 +94,40 @@ void setup() {
 
 void loop() {
 
-//    if (interruptPinDer) {
-//      contadorDer = contadorDer + 1;
-//    }
-//
-//    if (interruptPinIzq) {
-//      contadorIzq = contadorIzq + 1;
-//    }
+    phiDeseado = atan2(yDeseado - y, xDeseado - x);
+
+    error = phiDeseado - phi;
+    W = ((velocidadLinearDer - velocidadLinearIzq) / L_RUEDAS) + (10 * error);
+    
+    velocidadNormaDer = VELOCIDAD + (W * L_RUEDAS) / 2;
+    velocidadNormaIzq = VELOCIDAD - (W * L_RUEDAS) / 2;
     
     myPIDDer.Compute();
     myPIDIzq.Compute();
     
-    analogWrite(8, entregaVelocidadIzq);
-    analogWrite(9, entregaVelocidadDer);
+    if (abs(x - xDeseado) < 5 && abs(y - yDeseado) < 5) { // ya estamos a 5 cm de la meta mejor paremonos
+      analogWrite(8, 0);
+      analogWrite(9, 0);
+//      Serial.println("LLEGUE");
+    } else {
+      analogWrite(8, entregaVelocidadIzq);
+      analogWrite(9, entregaVelocidadDer);
+//      Serial.println("AHI VOY");
+    }
 
-//  Serial.print(entregaVelocidadIzq);
-//  Serial.print(" ");
-//  Serial.println(entregaVelocidadDer);
-//  Serial.print(" ");
-  Serial.print(velocidadAngularIzq);
-  Serial.print(" ");
-  Serial.println(velocidadAngularDer);
+//    Serial.print(entregaVelocidadIzq);
+//    Serial.print(" ");
+//    Serial.println(entregaVelocidadDer);
+//    Serial.print(" ");
+//    Serial.print(velocidadAngularIzq);
+//    Serial.print(" ");
+//    Serial.println(velocidadAngularDer);
 //    Serial.print(contadorIzq);
 //    Serial.print(" ");
 //    Serial.println(contadorDer);
-
+//    Serial.print(x);
+//    Serial.print(" ");
+//    Serial.println(y);
 }
 
 void cuentaRPMDer() {
@@ -115,16 +141,42 @@ void cuentaRPMIzq() {
 
 ISR(TIMER1_COMPA_vect){//timer1 interrupt 10Hz = 100ms  => 16,000,000 / {(prescaler * desired hz) - 1}
   cli();
-    contadorDer = (contadorDer / 20) / 0.1; // vuealtas dadas/segundo
-    contadorIzq = (contadorIzq / 20) / 0.1; // vuealtas dadas/segundo
+    double vueltasDerSegundos = (((double) contadorDer) / 20.00) / 0.1; // vuealtas dadas/segundo
+    double vueltasIzqSegundos = (((double) contadorIzq) / 20.00) / 0.1; // vuealtas dadas/segundo
             
-    velocidadAngularDer = 2 * PI * contadorDer; // velocidad angular en rad/s
-    velocidadAngularIzq = 2 * PI * contadorIzq; // velocidad angular en rad/s
+    velocidadAngularDer = 2 * PI * vueltasDerSegundos; // velocidad angular en rad/s
+    velocidadLinearDer = (DIAMETRO / 2) * velocidadAngularDer; // velocidad llanta der en cm/s
+    
+    velocidadAngularIzq = 2 * PI * vueltasIzqSegundos; // velocidad angular en rad/s
+    velocidadLinearIzq = (DIAMETRO / 2) * velocidadAngularIzq; // velocidad llanta izq en cm/s
+
+    double distanciaDer = PI * DIAMETRO * ((double) contadorDer / 20.00 );
+    double distanciaIzq = PI * DIAMETRO * ((double) contadorIzq / 20.00 );
+
+    distancia = (distanciaDer + distanciaIzq) / 2;
+
+    Serial.print(x);
+    Serial.print(" ");
+    Serial.println(y);
+    x = x + (distancia * cos(phi));
+    y = y + (distancia * sin(phi));
+    phi = phi + ((distanciaDer - distanciaIzq) / L_RUEDAS);
+    phi = atan2(sin(phi), cos(phi));
 
     contadorIzq = 0;
     contadorDer = 0;
   sei();
 }
+
+
+
+//    if (interruptPinDer) {
+//      contadorDer = contadorDer + 1;
+//    }
+//
+//    if (interruptPinIzq) {
+//      contadorIzq = contadorIzq + 1;
+//    }
 
 
 //if (inicioIzq == 0) {
