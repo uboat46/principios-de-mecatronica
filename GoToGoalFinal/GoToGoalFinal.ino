@@ -1,25 +1,22 @@
-#include <ros.h>
-#include <std_msgs/String.h>
-
 #include <math.h>                                        
-#define PI 3.1415926535897932384626433832795   
+#define PI 3.1415926535897932384626433832795             
 
 int N = 20;                                             // encoder spaces
 int tickCounter = 1;                                    // numbers of ticks for velocity measure
 int averageFilterLength = 10;                           // average filter length for the velocity of the wheels
-int samplingTime = 1;                                  // samplingTime in miliseconds
+int sampleTime = 10;                                             // tiempo de muestreo
 
 volatile unsigned muestreoActual = 0;                     // variables para definiciòn del tiempo de muestreo
 volatile unsigned muestreoAnterior = 0;
 volatile unsigned deltaMuestreo = 0;
 
 float error = 0;                                        // error variables
-float Kp = 20;                                          // Contante proporcional control
+float Kp = 40;                                          // Contante proporcional control
 int PWMr = 0;                                           // PWM de la llanta derecha (señal de control llanta derecha)
 int PWMl = 0;                                           // PWM de la llanta izquierda (señal de control llanta izquierda)
 
-int PWMmax=150;                                          // PWM màximo 
-int PWMmin=40;                                           // PWM mìnimo
+int PWMmax=255;                                          // PWM màximo 
+int PWMmin=0;                                           // PWM mìnimo
 
 
 ///------------------------------- Variables Posición del robot---------------------------------------------
@@ -29,9 +26,9 @@ float y = 0;                                            // distancia recorrida e
 float phi = 0;                                          // posición angular
 
 ///------------------------------- Variables Posición deseada ---------------------------------------------
-float Xd = 000;
-float Yd = 200;
-
+float Xd = 100;
+float Yd = 100;
+float Phid= atan2(Yd-y, Xd-x);
 
 ///------------------------------- Variables del robot  ---------------------------------------------
 
@@ -51,7 +48,7 @@ int llantaR = 9;      // pin de conexiòn de llanta derecha   (pin de PWM)
 
 double frecuenciaR = 0;                                  // frecuencia de interrupciòn llanta R
 double Wr = 0;                                           // Velocidad angular R
-double Vr = 0;                                           // velocidad Lineal                          
+double Vr = 0;                                           // velocidad Lineal
 int CR = 0;                                             // contador ticks
 float vectorR[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};    // vector de almacenamiento de datos para promedio del tiempo de interrupciones
 
@@ -80,14 +77,7 @@ int Ltick = 0;                                           // ticks del encoder iz
 int LtickAnt = 0;                                        // ticks del encoder izquier anteriores
 int deltaLtick = 0;                                      // diferencia del encoder izquierdo
 
-
-//  ========= PID VARIABLES =========
-double velocidadNormaDer, entregaVelocidadDer;
-double velocidadNormaIzq, entregaVelocidadIzq;
-
 void setup() {
-  cli();
-  
   pinMode(encoderR, INPUT_PULLUP);
   pinMode(encoderL, INPUT_PULLUP);
 
@@ -108,53 +98,53 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(encoderR), REncoder, RISING);                // linea para añadir una interrupciòn a un PIN
   attachInterrupt(digitalPinToInterrupt(encoderL), LEncoder, RISING);                // linea para añadir una interrupciòn a un PIN
   Serial.begin(9600);                                                               // inicio de la comunicaciòn serial
-  sei();
 }
 
-void REncoder() {                                                                                        
-  Rtick++;                                                                                           // Nùmero de ticks llanta derecha
-  CR++;                                                                                              // incremento del contador de ticks
-  if (CR == tickCounter){                                                                           
-    float media = 0;                                                                                // variable creada para cálculo del promedio  
-    for(int i=0;i < averageFilterLength-1;i++){                                                                    // relleno del vector para cálculo posterior del promedio
-      vectorR[i]=vectorR[i+1];                                                                   
-    }
-    vectorR[averageFilterLength-1]=deltaMuestreoInterrupcionR ;                                                     // ùltimo dato del vector (medida actual) 
+void REncoder() {                                                                                         // función de interrupción del enconder llanta derecha
+      Rtick++;                                                                                           // Nùmero de ticks llanta derecha
+      CR++;                                                                                               // incremento del contador de ticks
+      if (CR == tickCounter){                                                                           // si el contador de ticks alcanza el valor de ticks determinado para el cálculo del tiempo
+          float media = 0;                                                                                // variable creada para cálculo del promedio  
+//-------------------------------------- -----------------------------    Filtro promedio    -----------------------------------------------------------------------------//
+          for(int i=0;i < averageFilterLength-1;i++){                                                                    // relleno del vector para cálculo posterior del promedio
+              vectorR[i]=vectorR[i+1];                                                                   
+          }
+          vectorR[averageFilterLength-1]=deltaMuestreoInterrupcionR ;                                                     // ùltimo dato del vector (medida actual) 
 
-    for(int i=0;i<averageFilterLength;i++){                                                                        // Suma de los valores del vector
-      media = vectorR[i]+ media;
-    }
-    media = media/averageFilterLength;                                                                             //división por el total de datos del vector
-    deltaMuestreoInterrupcionR = media;                                                            // se reemplaza por el valor de su medío. 
-
-    frecuenciaR = (1000)/ deltaMuestreoInterrupcionR;                                              // frecuencia de interrupciòn      
-    muestreoAnteriorInterrupcionR = muestreoActualInterrupcionR;                                   // se actualiza el tiempo de interrupciòn anterior
-    CR = 0;                                                                                        //Reinicio de contador de ticks
-  } 
-} 
+          for(int i=0;i<averageFilterLength;i++){                                                                        // Suma de los valores del vector
+              media = vectorR[i]+ media;
+          }
+          media = media/averageFilterLength;                                                                             //división por el total de datos del vector
+          deltaMuestreoInterrupcionR = media;                                                            // se reemplaza por el valor de su medío. 
+//-------------------------------------- ----------------------------- ---------------------------------------------------------------------------------------------------//           
+          frecuenciaR = (1000)/ deltaMuestreoInterrupcionR;                                              // frecuencia de interrupciòn      
+          muestreoAnteriorInterrupcionR = muestreoActualInterrupcionR;                                   // se actualiza el tiempo de interrupciòn anterior
+          CR = 0;                                                                                        //Reinicio de contador de ticks
+      } 
+ } 
 
 void LEncoder() {                                                                                       // funciòn de interrupciòn del enconder llanta izquierda
-  Ltick++;                                                                                           // Nùmero de ticks llanta izquierda
-  CL++;                                                                                             // incremento del contador de ticks
-  if (CL == tickCounter){                                                                         // si el contador de ticks alcanza el valor de ticks determinado para el cálculo del tiempo
-    float media = 0;                                                                              // variable creada para cálculo del promedio
+      Ltick++;                                                                                           // Nùmero de ticks llanta izquierda
+      CL++;                                                                                             // incremento del contador de ticks
+      if (CL == tickCounter){                                                                         // si el contador de ticks alcanza el valor de ticks determinado para el cálculo del tiempo
+          float media = 0;                                                                              // variable creada para cálculo del promedio
 //-------------------------------------- -----------------------------    Filtro promedio    -----------------------------------------------------------------------------//
-    for(int i=0;i < averageFilterLength-1;i++){                                                                    // relleno del vector para calculo posterior del promedio
-        vectorL[i]=vectorL[i+1];
-    }
-    vectorL[averageFilterLength-1]=deltaMuestreoInterrupcionL;                                                     // último dato del vector (medida actual) 
+          for(int i=0;i < averageFilterLength-1;i++){                                                                    // relleno del vector para calculo posterior del promedio
+              vectorL[i]=vectorL[i+1];
+          }
+          vectorL[averageFilterLength-1]=deltaMuestreoInterrupcionL;                                                     // último dato del vector (medida actual) 
 
-    for(int i=0;i<averageFilterLength;i++){                                                                        // Suma de los valores del vector
-      media = vectorL[i]+ media;
-    }
-    media = media/averageFilterLength;                                                                             //división por el total de datos del vector
-    deltaMuestreoInterrupcionL = media;                                                            // se reemplaza por el valor de su medío. 
+          for(int i=0;i<averageFilterLength;i++){                                                                        // Suma de los valores del vector
+              media = vectorL[i]+ media;
+          }
+          media = media/averageFilterLength;                                                                             //división por el total de datos del vector
+          deltaMuestreoInterrupcionL = media;                                                            // se reemplaza por el valor de su medío. 
 //-------------------------------------- ----------------------------- ---------------------------------------------------------------------------------------------------//      
-    frecuenciaL = (1000)/ deltaMuestreoInterrupcionL;                                              // frecuencia de interrupciòn 
-    muestreoAnteriorInterrupcionL = muestreoActualInterrupcionL;                                   // se actualiza el tiempo de interrupciòn anterior
-    CL = 0;                                                                                        // Reinicio de contador de ticks
-  } 
-} 
+          frecuenciaL = (1000)/ deltaMuestreoInterrupcionL;                                              // frecuencia de interrupciòn 
+          muestreoAnteriorInterrupcionL = muestreoActualInterrupcionL;                                   // se actualiza el tiempo de interrupciòn anterior
+          CL = 0;                                                                                        // Reinicio de contador de ticks
+       } 
+ } 
 
 
 void loop() { 
@@ -212,15 +202,21 @@ void loop() {
           analogWrite(llantaR,PWMr);
           analogWrite(llantaL,PWMl); 
        }
-                
-       odometria();                                                                                      // cálculo de la odometría                 
-              
-       muestreoAnterior = muestreoActual;                                                                 // actualización del muestreo anterior
-     }
-     Serial.print(x);
-     Serial.print(" ");
-     Serial.println(y);
+        
+//        analogWrite(llantaR,PWMr);                                                                           // PWM de la llanta derecha
+//        analogWrite(llantaL,PWMl);                                                                           // PWM de la llanta izquierda
 
+//        analogWrite(llantaR,0);                                                                           // PWM de la llanta derecha
+//        analogWrite(llantaL,0);                                                                           // PWM de la llanta izquierda
+        
+        odometria();                                                                                      // cálculo de la odometría                 
+       
+        muestreoAnterior = muestreoActual;                                                                 // actualización del muestreo anterior
+     }
+
+     Serial.print(x);                                                                                  // se muestra el tiempo entre TIC y TIC
+        Serial.print(",");                                                                                 // se muestra el tiempo entre TIC y TIC
+        Serial.println(y);                                                                                // se muestra el tiempo entre TIC y TIC
 }
 
 void odometria(){ 

@@ -46,20 +46,6 @@ PID myPIDIzq(&velocidadAngularIzq, &entregaVelocidadIzq, &velocidadNormaIzq, 2, 
 
 
 void setup() {
-
-  // Set timer to count wheels velocity every 100ms
-  cli();
-  TCCR1B = 0;
-  TCCR1A = 0;
-  TCNT1 = 0;
-  TCCR1B |= (1 << CS12);
-  // set compare match register for 10hz increments
-  OCR1A = 6252;
-  // turn on CTC mode
-  TCCR1B |= (1 << WGM12);
-  // enable timer compare interrupt
-  TIMSK1 |= (1 << OCIE1A);
-  sei();
   
   Serial.begin(9600);
   pinMode(interruptPinDer, INPUT_PULLUP);
